@@ -4,6 +4,7 @@ import { auth, logout } from "../firebase";
 import { spotify, AUTH_URL } from "../spotify";
 import Player from "./Player";
 import "./Dashboard.css";
+import SpotifyPlayer from "./SpotifyPlayer.jsx";
 
 const Dashboard = () => {
   const [user, setUser] = useState(null);
@@ -99,6 +100,8 @@ const Dashboard = () => {
       <Player track={currentTrack} />
     </div>
   );
+  
+<SpotifyPlayer token={token} />
 };
 
 export default Dashboard;
