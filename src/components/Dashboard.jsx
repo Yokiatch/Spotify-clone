@@ -1,37 +1,55 @@
 import { useEffect, useState } from "react";
 import { FaHome, FaSearch, FaSignOutAlt, FaPlay } from "react-icons/fa";
-import { getAuth, signOut } from "firebase/auth";
-import { spotify } from "../spotify";
+import { auth, logout } from "../firebase";
+import { spotify, AUTH_URL } from "../spotify";
 import Player from "./Player";
+import "./Dashboard.css";
 
 const Dashboard = () => {
   const [user, setUser] = useState(null);
   const [playlists, setPlaylists] = useState([]);
   const [searchResults, setSearchResults] = useState([]);
   const [currentTrack, setCurrentTrack] = useState(null);
-  const auth = getAuth();
+  const [token, setToken] = useState(localStorage.getItem("spotify_token") || "");
 
   useEffect(() => {
-    spotify.getMe().then((userData) => setUser(userData));
-    spotify.getUserPlaylists().then((data) => setPlaylists(data.items));
-  }, []);
+    if (!token) {
+      console.error("Spotify access token is missing!");
+      window.location.href = AUTH_URL; // Redirect to login
+      return;
+    }
+
+    spotify.setAccessToken(token);
+
+    spotify.getMe()
+      .then((userData) => {
+        console.log("User Data:", userData);
+        setUser(userData);
+      })
+      .catch((err) => console.error("Error fetching user data:", err));
+
+    spotify.getUserPlaylists()
+      .then((data) => {
+        console.log("Playlists Data:", data);
+        setPlaylists(data.items || []);
+      })
+      .catch((error) => console.error("Error fetching playlists:", error));
+  }, [token]);
 
   const handleSearch = async (query) => {
     if (!query) return setSearchResults([]);
-    const data = await spotify.searchTracks(query);
-    setSearchResults(data.tracks.items);
+
+    try {
+      const data = await spotify.searchTracks(query);
+      console.log("Search Results:", data);
+      setSearchResults(data.tracks.items || []);
+    } catch (error) {
+      console.error("Error searching tracks:", error);
+    }
   };
 
   const playSong = (track) => {
     setCurrentTrack(track);
-  };
-
-  const nextTrack = () => {
-    console.log("Next track clicked");
-  };
-
-  const prevTrack = () => {
-    console.log("Previous track clicked");
   };
 
   return (
@@ -49,7 +67,7 @@ const Dashboard = () => {
             <li key={playlist.id}>{playlist.name}</li>
           ))}
         </ul>
-        <button onClick={() => signOut(auth)}>
+        <button onClick={logout}>
           <FaSignOutAlt /> Logout
         </button>
       </aside>
@@ -78,7 +96,7 @@ const Dashboard = () => {
       </main>
 
       {/* Music Player */}
-      <Player track={currentTrack} onNext={nextTrack} onPrev={prevTrack} />
+      <Player track={currentTrack} />
     </div>
   );
 };
