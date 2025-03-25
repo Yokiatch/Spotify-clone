@@ -3,14 +3,22 @@ import { FaPlay, FaPause, FaStepForward, FaStepBackward } from "react-icons/fa";
 
 const Player = ({ track, onNext, onPrev }) => {
   const [isPlaying, setIsPlaying] = useState(false);
-  const audioRef = useRef(new Audio(track?.preview_url));
+  const audioRef = useRef(new Audio());
 
   useEffect(() => {
-    if (track) {
+    if (track?.preview_url) {
       audioRef.current.src = track.preview_url;
+      audioRef.current.load();
       setIsPlaying(false);
     }
   }, [track]);
+
+  useEffect(() => {
+    return () => {
+      audioRef.current.pause();
+      audioRef.current.src = "";
+    };
+  }, []);
 
   const togglePlay = () => {
     if (!track?.preview_url) return;
@@ -26,7 +34,7 @@ const Player = ({ track, onNext, onPrev }) => {
     <div className="player">
       {track ? (
         <>
-          <img src={track.album.images[0]?.url} alt={track.name} className="track-img" />
+          <img src={track.album?.images?.[0]?.url} alt={track.name} className="track-img" />
           <div className="track-info">
             <h4>{track.name}</h4>
             <p>{track.artists.map((artist) => artist.name).join(", ")}</p>

@@ -12,37 +12,44 @@ const SpotifyPlayer = ({ token }) => {
       return;
     }
 
-    const script = document.createElement("script");
-    script.src = "https://sdk.scdn.co/spotify-player.js";
-    script.async = true;
-    document.body.appendChild(script);
+    if (!document.getElementById("spotify-sdk")) {
+      const script = document.createElement("script");
+      script.id = "spotify-sdk";
+      script.src = "https://sdk.scdn.co/spotify-player.js";
+      script.async = true;
+      document.body.appendChild(script);
+    }
 
-    script.onload = () => {
-      window.onSpotifyWebPlaybackSDKReady = () => {
-        console.log("Spotify SDK is Ready!");
+    window.onSpotifyWebPlaybackSDKReady = () => {
+      console.log("Spotify SDK is Ready!");
 
-        const playerInstance = new window.Spotify.Player({
-          name: "Musify Web Player",
-          getOAuthToken: (cb) => cb(token),
-          volume: 0.5,
-        });
+      const playerInstance = new window.Spotify.Player({
+        name: "Musify Web Player",
+        getOAuthToken: (cb) => cb(token),
+        volume: 0.5,
+      });
 
-        setPlayer(playerInstance);
+      setPlayer(playerInstance);
 
-        playerInstance.addListener("ready", ({ device_id }) => {
-          console.log("Player Ready with Device ID:", device_id);
-          setDeviceId(device_id);
-          transferPlaybackToWebPlayer(device_id);
-        });
+      playerInstance.addListener("ready", ({ device_id }) => {
+        console.log("Player Ready with Device ID:", device_id);
+        setDeviceId(device_id);
+        transferPlaybackToWebPlayer(device_id);
+      });
 
-        playerInstance.addListener("player_state_changed", (state) => {
-          if (!state) return;
-          setIsPaused(state.paused);
-          setCurrentTrack(state.track_window.current_track);
-        });
+      playerInstance.addListener("player_state_changed", (state) => {
+        if (!state) return;
+        setIsPaused(state.paused);
+        setCurrentTrack(state.track_window.current_track);
+      });
 
-        playerInstance.connect();
-      };
+      playerInstance.connect();
+    };
+
+    return () => {
+      if (player) {
+        player.disconnect();
+      }
     };
   }, [token]);
 
@@ -64,8 +71,13 @@ const SpotifyPlayer = ({ token }) => {
 
   const playPause = async () => {
     if (!player) return;
-    isPaused ? player.resume() : player.pause();
-    setIsPaused(!isPaused);
+    try {
+      await player.activateElement();
+      isPaused ? player.resume() : player.pause();
+      setIsPaused(!isPaused);
+    } catch (error) {
+      console.error("Error playing/pausing track:", error);
+    }
   };
 
   return (

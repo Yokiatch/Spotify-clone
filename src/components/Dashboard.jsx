@@ -14,28 +14,70 @@ const Dashboard = () => {
 
   useEffect(() => {
     const storedToken = localStorage.getItem("spotify_access_token");
+
     if (!storedToken) {
       console.error("Spotify access token is missing!");
       return;
     }
-    setToken(storedToken);
 
-    spotify.setAccessToken(storedToken);
-
-    spotify.getMe()
-      .then((userData) => {
-        console.log("User Data:", userData);
-        setUser(userData);
+    // Validate token by making a test request
+    fetch("https://api.spotify.com/v1/me", {
+      headers: { Authorization: `Bearer ${storedToken}` },
+    })
+      .then((res) => {
+        if (!res.ok) {
+          console.error("Invalid token. Redirecting to login.");
+          localStorage.removeItem("spotify_access_token");
+          setToken(null);
+        } else {
+          setToken(storedToken);
+          spotify.setAccessToken(storedToken);
+        }
       })
-      .catch((err) => console.error("Error fetching user data:", err));
-
-    spotify.getUserPlaylists()
-      .then((data) => {
-        console.log("Playlists Data:", data);
-        setPlaylists(data.items || []);
-      })
-      .catch((error) => console.error("Error fetching playlists:", error));
+      .catch((err) => console.error("Error validating token:", err));
   }, []);
+
+  useEffect(() => {
+    if (!token) return;
+
+    spotify.setAccessToken(token);
+
+    spotify
+      .getMe()
+      .then((userData) => setUser(userData))
+      .catch((err) => {
+        console.error("Error fetching user data:", err);
+        if (err.status === 401) {
+          console.error("Token expired. Refreshing...");
+          localStorage.removeItem("spotify_access_token");
+          setToken(null);
+        }
+      });
+
+    spotify
+      .getUserPlaylists()
+      .then((data) => setPlaylists(data.items || []))
+      .catch((error) => console.error("Error fetching playlists:", error));
+  }, [token]);
+
+  // Initialize Spotify Web Playback SDK
+  useEffect(() => {
+    if (!token) return;
+
+    window.onSpotifyWebPlaybackSDKReady = () => {
+      const player = new Spotify.Player({
+        name: "Spotify Clone Player",
+        getOAuthToken: (cb) => cb(token),
+      });
+
+      player.addListener("ready", ({ device_id }) => {
+        console.log("Ready with Device ID", device_id);
+        setDeviceId(device_id);
+      });
+
+      player.connect();
+    };
+  }, [token]);
 
   const handleSearch = async (query) => {
     if (!query) return setSearchResults([]);
@@ -101,7 +143,7 @@ const Dashboard = () => {
         <div className="search-results">
           {searchResults.map((track) => (
             <div key={track.id} className="track">
-              <img src={track.album?.images?.[0]?.url || "default-image.jpg"} alt={track.name} />
+              <img src={track.album?.images?.[0]?.url || "https://via.placeholder.com/150"} alt={track.name} />
               <div>
                 <h4>{track.name}</h4>
                 <p>{track.artists.map((artist) => artist.name).join(", ")}</p>
