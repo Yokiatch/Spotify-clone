@@ -1,26 +1,26 @@
 import { useEffect, useState } from "react";
 import { FaHome, FaSearch, FaSignOutAlt, FaPlay } from "react-icons/fa";
 import { auth, logout } from "../firebase";
-import { spotify, AUTH_URL } from "../spotify";
-import Player from "./Player";
+import { spotify } from "../spotify";
+import SpotifyPlayer from "./SpotifyPlayer";
 import "./Dashboard.css";
-import SpotifyPlayer from "./SpotifyPlayer.jsx";
 
 const Dashboard = () => {
   const [user, setUser] = useState(null);
   const [playlists, setPlaylists] = useState([]);
   const [searchResults, setSearchResults] = useState([]);
-  const [currentTrack, setCurrentTrack] = useState(null);
-  const [token, setToken] = useState(localStorage.getItem("spotify_token") || "");
+  const [token, setToken] = useState(null);
+  const [deviceId, setDeviceId] = useState(null);
 
   useEffect(() => {
-    if (!token) {
+    const storedToken = localStorage.getItem("spotify_access_token");
+    if (!storedToken) {
       console.error("Spotify access token is missing!");
-      window.location.href = AUTH_URL; // Redirect to login
       return;
     }
+    setToken(storedToken);
 
-    spotify.setAccessToken(token);
+    spotify.setAccessToken(storedToken);
 
     spotify.getMe()
       .then((userData) => {
@@ -35,7 +35,7 @@ const Dashboard = () => {
         setPlaylists(data.items || []);
       })
       .catch((error) => console.error("Error fetching playlists:", error));
-  }, [token]);
+  }, []);
 
   const handleSearch = async (query) => {
     if (!query) return setSearchResults([]);
@@ -49,8 +49,26 @@ const Dashboard = () => {
     }
   };
 
-  const playSong = (track) => {
-    setCurrentTrack(track);
+  const playSong = async (track) => {
+    if (!deviceId) {
+      console.error("No device ID found! Make sure Web Player is ready.");
+      return;
+    }
+
+    try {
+      await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ uris: [track.uri] }),
+      });
+
+      console.log("Playing song:", track.name);
+    } catch (error) {
+      console.error("Error playing song:", error);
+    }
   };
 
   return (
@@ -96,12 +114,10 @@ const Dashboard = () => {
         </div>
       </main>
 
-      {/* Music Player */}
-      <Player track={currentTrack} />
+      {/* Spotify Player */}
+      <SpotifyPlayer token={token} />
     </div>
   );
-  
-<SpotifyPlayer token={token} />
 };
 
 export default Dashboard;

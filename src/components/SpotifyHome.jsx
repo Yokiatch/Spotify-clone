@@ -1,5 +1,5 @@
 import Sidebar from "./Sidebar";
-import MusicPlayer from "./MusicPlayer";
+import MusicPlayer from "./Musicplayer";
 
 const SpotifyHome = () => {
   const playlists = [

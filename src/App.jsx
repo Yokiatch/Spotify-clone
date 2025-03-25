@@ -26,6 +26,36 @@ const Callback = () => {
 const App = () => {
   const [token, setToken] = useState(localStorage.getItem("spotifyToken") || null);
 
+  useEffect(() => {
+    if (token) {
+      window.onSpotifyWebPlaybackSDKReady = () => {
+        const player = new window.Spotify.Player({
+          name: "Spotify Clone",
+          getOAuthToken: (cb) => { cb(token); },
+          volume: 0.5,
+        });
+
+        // Error Handling
+        player.addListener("initialization_error", ({ message }) => console.error("Initialization error:", message));
+        player.addListener("authentication_error", ({ message }) => console.error("Authentication error:", message));
+        player.addListener("account_error", ({ message }) => console.error("Account error:", message));
+        player.addListener("playback_error", ({ message }) => console.error("Playback error:", message));
+
+        // Player is Ready
+        player.addListener("ready", ({ device_id }) => {
+          console.log("Ready with Device ID:", device_id);
+        });
+
+        // Player is Not Ready
+        player.addListener("not_ready", ({ device_id }) => {
+          console.log("Device ID has gone offline:", device_id);
+        });
+
+        player.connect();
+      };
+    }
+  }, [token]);
+
   return (
     <Router>
       <Routes>

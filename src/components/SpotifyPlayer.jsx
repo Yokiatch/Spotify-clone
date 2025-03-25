@@ -2,37 +2,86 @@ import { useEffect, useState } from "react";
 
 const SpotifyPlayer = ({ token }) => {
   const [player, setPlayer] = useState(null);
-  const [deviceId, setDeviceId] = useState("");
+  const [deviceId, setDeviceId] = useState(null);
+  const [isPaused, setIsPaused] = useState(true);
+  const [currentTrack, setCurrentTrack] = useState(null);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token) {
+      console.error("Spotify Token is missing!");
+      return;
+    }
 
     const script = document.createElement("script");
     script.src = "https://sdk.scdn.co/spotify-player.js";
     script.async = true;
     document.body.appendChild(script);
 
-    window.onSpotifyWebPlaybackSDKReady = () => {
-      const playerInstance = new window.Spotify.Player({
-        name: "Musify Player",
-        getOAuthToken: (cb) => cb(token),
-        volume: 0.5,
-      });
+    script.onload = () => {
+      window.onSpotifyWebPlaybackSDKReady = () => {
+        console.log("Spotify SDK is Ready!");
 
-      playerInstance.addListener("ready", ({ device_id }) => {
-        console.log("Ready with Device ID", device_id);
-        setDeviceId(device_id);
-      });
+        const playerInstance = new window.Spotify.Player({
+          name: "Musify Web Player",
+          getOAuthToken: (cb) => cb(token),
+          volume: 0.5,
+        });
 
-      playerInstance.connect();
-      setPlayer(playerInstance);
+        setPlayer(playerInstance);
+
+        playerInstance.addListener("ready", ({ device_id }) => {
+          console.log("Player Ready with Device ID:", device_id);
+          setDeviceId(device_id);
+          transferPlaybackToWebPlayer(device_id);
+        });
+
+        playerInstance.addListener("player_state_changed", (state) => {
+          if (!state) return;
+          setIsPaused(state.paused);
+          setCurrentTrack(state.track_window.current_track);
+        });
+
+        playerInstance.connect();
+      };
     };
   }, [token]);
 
+  const transferPlaybackToWebPlayer = async (device_id) => {
+    try {
+      await fetch("https://api.spotify.com/v1/me/player", {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ device_ids: [device_id], play: false }),
+      });
+      console.log("Playback transferred to Web Player!");
+    } catch (error) {
+      console.error("Error transferring playback:", error);
+    }
+  };
+
+  const playPause = async () => {
+    if (!player) return;
+    isPaused ? player.resume() : player.pause();
+    setIsPaused(!isPaused);
+  };
+
   return (
-    <div>
-      <h3>Spotify Player</h3>
-      <p>{deviceId ? "Player Ready" : "Loading Player..."}</p>
+    <div className="spotify-player">
+      {currentTrack ? (
+        <div className="track-info">
+          <img src={currentTrack.album.images[0].url} alt={currentTrack.name} />
+          <div>
+            <h4>{currentTrack.name}</h4>
+            <p>{currentTrack.artists.map((artist) => artist.name).join(", ")}</p>
+          </div>
+        </div>
+      ) : (
+        <p>No track playing</p>
+      )}
+      <button onClick={playPause}>{isPaused ? "▶️ Play" : "⏸️ Pause"}</button>
     </div>
   );
 };
